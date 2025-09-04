@@ -39,7 +39,7 @@ echo ✓ Environment created/updated successfully
 
 echo.
 echo [3/6] Activating environment...
-call conda activate llm-lora-env
+call conda.bat activate llm-lora-env
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to activate environment!
     pause
