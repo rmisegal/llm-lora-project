@@ -36,11 +36,17 @@ echo ✓ Basic environment created
 
 echo.
 echo [3/8] Activating environment...
-call conda.bat activate llm-lora-env
+call conda activate llm-lora-env
 if %ERRORLEVEL% NEQ 0 (
-    echo ERROR: Failed to activate environment!
-    pause
-    exit /b 1
+    echo Trying alternative activation method...
+    call %CONDA_PREFIX%\Scripts\activate llm-lora-env
+    if %ERRORLEVEL% NEQ 0 (
+        echo ERROR: Failed to activate environment!
+        echo Please manually activate with: conda activate llm-lora-env
+        echo Then run the remaining steps manually.
+        pause
+        exit /b 1
+    )
 )
 echo ✓ Environment activated
 
