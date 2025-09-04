@@ -35,38 +35,53 @@ This project provides a hands-on approach to learning and implementing LoRA (Low
 ## 🛠️ Installation
 
 ### Prerequisites
-- Windows 11
-- Anaconda or Miniconda installed
-- Git installed
+- **Windows 11** (primary target)
+- **Anaconda or Miniconda** installed ([Download here](https://www.anaconda.com/products/distribution))
+- **Git** installed ([Download here](https://git-scm.com/download/win))
 
-### Quick Setup
-1. Clone this repository:
-   ```bash
+### 🚀 Quick Setup (Recommended)
+
+1. **Clone this repository:**
+   ```cmd
    git clone https://github.com/rmisegal/llm-lora-project.git
    cd llm-lora-project
    ```
 
-2. Run the setup batch file (coming soon):
-   ```bash
+2. **Run the automated setup:**
+   ```cmd
    setup.bat
    ```
+   This will:
+   - Create the conda environment `llm-lora-env`
+   - Install all required packages
+   - Verify the installation
 
-3. Activate the environment and run:
-   ```bash
+3. **Start the project:**
+   ```cmd
+   run.bat
+   ```
+   Or manually:
+   ```cmd
    conda activate llm-lora-env
    python main.py
    ```
 
-### Manual Setup
-1. Create conda environment:
-   ```bash
-   conda create -n llm-lora-env python=3.9 -y
+### 🔧 Manual Setup (Alternative)
+
+1. **Create conda environment from file:**
+   ```cmd
+   conda env create -f environment.yml
    conda activate llm-lora-env
    ```
 
-2. Install required packages:
-   ```bash
-   pip install torch transformers peft datasets tensorboard scikit-learn numpy pandas matplotlib seaborn tqdm
+2. **Install additional packages:**
+   ```cmd
+   pip install -r requirements.txt
+   ```
+
+3. **Verify installation:**
+   ```cmd
+   python -c "import torch, transformers, peft; print('✓ Setup successful!')"
    ```
 
 ## 🎮 Usage
@@ -87,7 +102,9 @@ The interactive menu will guide you through:
 ```
 llm-lora-project/
 ├── main.py              # Main menu system
-├── setup.bat            # Windows setup script
+├── setup.bat            # Windows automated setup script
+├── run.bat              # Quick start script
+├── environment.yml      # Conda environment specification
 ├── requirements.txt     # Python dependencies
 ├── README.md           # This file
 ├── task_1.py           # Task 1: Fine-Tuning LLMs using LoRA
