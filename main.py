@@ -97,7 +97,7 @@ class LLMLoRAMenu:
         print("-"*40)
         
         try:
-            with open(task_file, 'r') as f:
+            with open(task_file, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 
             # Find the main function or code section

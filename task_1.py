@@ -240,6 +240,21 @@ def run_test():
     """Test function for the menu system."""
     print("🧪 Running Task 1 Test...")
     print("-" * 40)
+    print("📋 TEST EXPLANATION:")
+    print("This test verifies the core functionality of Task 1: Fine-Tuning LLMs using LoRA")
+    print()
+    print("🔍 What this test checks:")
+    print("  • Dependency availability (transformers, peft, torch)")
+    print("  • LoRA configuration creation and validation")
+    print("  • Module imports and function accessibility")
+    print("  • Error handling for missing dependencies")
+    print("  • Integration compatibility with the menu system")
+    print()
+    print("✅ Expected outcome: All components should be properly configured")
+    print("   and ready for LoRA fine-tuning when dependencies are installed.")
+    print()
+    print("🚀 Starting test execution...")
+    print("-" * 40)
     
     try:
         # Test dependency checking
