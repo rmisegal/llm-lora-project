@@ -261,30 +261,111 @@ def run_test():
         deps_ok = check_dependencies()
         if not deps_ok:
             print("❌ Dependency test failed")
+            print("💡 Please install required packages to run the full test:")
+            print("   pip install torch transformers peft")
             return False
         
         print("✅ Dependencies test passed")
         
-        # Test LoRA setup (simplified for testing)
+        # Test LoRA configuration and setup with REAL libraries
+        print("\n🔧 Testing LoRA Configuration...")
+        
         try:
-            from transformers import AutoModelForCausalLM
-            from peft import LoraConfig, TaskType
+            # Import required libraries
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from peft import LoraConfig, get_peft_model, TaskType
             
-            # Just test configuration creation
-            config = LoraConfig(
+            print("  • Successfully imported transformers and peft libraries")
+            
+            # Test LoRA configuration creation
+            print("  • Creating LoRA configuration...")
+            peft_config = LoraConfig(
                 task_type=TaskType.CAUSAL_LM,
+                inference_mode=False,
                 r=8,
                 lora_alpha=32,
                 lora_dropout=0.1,
-                bias="none",
+                target_modules=["c_attn", "c_proj"]
             )
             
-            print("✅ LoRA configuration test passed")
-            print("✅ All tests passed!")
+            # Verify configuration properties
+            assert peft_config.task_type == TaskType.CAUSAL_LM, "Task type should be CAUSAL_LM"
+            assert peft_config.r == 8, f"Expected rank=8, got {peft_config.r}"
+            assert peft_config.lora_alpha == 32, f"Expected alpha=32, got {peft_config.lora_alpha}"
+            assert peft_config.lora_dropout == 0.1, f"Expected dropout=0.1, got {peft_config.lora_dropout}"
+            print("  ✅ LoRA configuration created and verified")
+            
+            # Test model loading (using a small model for testing)
+            print("  • Loading GPT-2 model for testing...")
+            model = AutoModelForCausalLM.from_pretrained("gpt2")
+            tokenizer = AutoTokenizer.from_pretrained("gpt2")
+            
+            # Add padding token if not present
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+            
+            print("  ✅ Model and tokenizer loaded successfully")
+            
+            # Test PEFT model creation
+            print("  • Applying LoRA to the model...")
+            original_param_count = sum(p.numel() for p in model.parameters())
+            
+            peft_model = get_peft_model(model, peft_config)
+            
+            # Get trainable parameters
+            trainable_params = sum(p.numel() for p in peft_model.parameters() if p.requires_grad)
+            total_params = sum(p.numel() for p in peft_model.parameters())
+            
+            # Verify parameter efficiency
+            efficiency = trainable_params / total_params
+            reduction = (1 - efficiency) * 100
+            
+            assert trainable_params < original_param_count, "LoRA should reduce trainable parameters"
+            assert efficiency < 0.1, f"LoRA should be very efficient, got {efficiency:.3f}"
+            
+            print(f"  ✅ LoRA applied successfully:")
+            print(f"    • Original parameters: {original_param_count:,}")
+            print(f"    • Trainable parameters: {trainable_params:,}")
+            print(f"    • Parameter efficiency: {efficiency:.4f} ({reduction:.2f}% reduction)")
+            
+            # Test tokenization and model inference
+            print("  • Testing tokenization and model inference...")
+            test_text = "Hello, this is a test"
+            inputs = tokenizer(test_text, return_tensors="pt", padding=True, truncation=True)
+            
+            # Test forward pass
+            with torch.no_grad():
+                outputs = peft_model(**inputs)
+                logits = outputs.logits
+            
+            assert torch.is_tensor(logits), "Output should be a PyTorch tensor"
+            assert not torch.isnan(logits).any(), "Output should not contain NaN values"
+            assert logits.shape[0] == 1, "Batch size should be 1"
+            assert logits.shape[-1] == tokenizer.vocab_size, "Last dimension should match vocab size"
+            
+            print(f"  ✅ Model inference successful: input shape {inputs['input_ids'].shape} → output shape {logits.shape}")
+            
+            print("\n" + "=" * 50)
+            print("✅ ALL TESTS PASSED!")
+            print("=" * 50)
+            print("🎯 Test Results Summary:")
+            print(f"  • LoRA Configuration: Working correctly")
+            print(f"  • Model Loading: GPT-2 loaded successfully")
+            print(f"  • Parameter Efficiency: {reduction:.2f}% reduction achieved")
+            print(f"  • Model Inference: Forward pass working")
+            print(f"  • Integration: All components working together")
+            print("=" * 50)
+            
             return True
             
+        except ImportError as e:
+            print(f"❌ Import error: {e}")
+            print("💡 Please install required packages:")
+            print("   pip install torch transformers peft")
+            return False
         except Exception as e:
-            print(f"❌ LoRA test failed: {e}")
+            print(f"❌ LoRA configuration test failed: {e}")
+            print(f"   Error type: {type(e).__name__}")
             return False
             
     except Exception as e:

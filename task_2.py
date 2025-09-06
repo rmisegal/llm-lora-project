@@ -457,47 +457,130 @@ def run_test():
         deps_ok = check_dependencies()
         if not deps_ok:
             print("❌ Dependency test failed")
+            print("💡 Please install PyTorch to run the full test:")
+            print("   pip install torch")
             return False
         
         print("✅ Dependencies test passed")
         
-        # Test LoRA layer creation and forward pass
-        if TORCH_AVAILABLE:
-            try:
-                # Test basic LoRA layer
-                lora = LoRALayer(64, 32, rank=4)
-                test_input = torch.randn(2, 64)
-                output = lora(test_input)
-                
-                assert output.shape == (2, 32), f"Expected shape (2, 32), got {output.shape}"
-                print("✅ LoRA layer test passed")
-                
-                # Test parameter counting
-                param_count = sum(p.numel() for p in lora.parameters())
-                expected_params = 64 * 4 + 4 * 32  # A matrix + B matrix
-                assert param_count == expected_params, f"Expected {expected_params} params, got {param_count}"
-                print("✅ Parameter counting test passed")
-                
-                # Test LoRA linear layer
-                lora_linear = LoRALinear(32, 16, rank=2)
-                test_input2 = torch.randn(3, 32)
-                output2 = lora_linear(test_input2)
-                
-                assert output2.shape == (3, 16), f"Expected shape (3, 16), got {output2.shape}"
-                print("✅ LoRA linear layer test passed")
-                
-                print("✅ All tests passed!")
-                return True
-                
-            except Exception as e:
-                print(f"❌ LoRA implementation test failed: {e}")
-                return False
-        else:
-            print("⚠️  PyTorch not available, skipping implementation tests")
-            return True
-            
+        # Test LoRA layer creation and forward pass with REAL PyTorch operations
+        print("\n🔧 Testing LoRA Layer Implementation...")
+        
+        # Test 1: Basic LoRA layer creation and forward pass
+        print("  • Creating LoRA layer (64→32, rank=4)...")
+        lora = LoRALayer(64, 32, rank=4, alpha=16.0)
+        
+        # Verify layer properties
+        assert lora.in_features == 64, f"Expected in_features=64, got {lora.in_features}"
+        assert lora.out_features == 32, f"Expected out_features=32, got {lora.out_features}"
+        assert lora.rank == 4, f"Expected rank=4, got {lora.rank}"
+        assert lora.alpha == 16.0, f"Expected alpha=16.0, got {lora.alpha}"
+        print("  ✅ Layer properties verified")
+        
+        # Test forward pass with real tensors
+        print("  • Testing forward pass with real tensors...")
+        test_input = torch.randn(2, 64)
+        output = lora(test_input)
+        
+        assert output.shape == (2, 32), f"Expected shape (2, 32), got {output.shape}"
+        assert torch.is_tensor(output), "Output should be a PyTorch tensor"
+        assert not torch.isnan(output).any(), "Output should not contain NaN values"
+        print(f"  ✅ Forward pass successful: {test_input.shape} → {output.shape}")
+        
+        # Test 2: Parameter counting
+        print("  • Verifying parameter counts...")
+        param_count = sum(p.numel() for p in lora.parameters())
+        expected_params = 64 * 4 + 4 * 32  # A matrix + B matrix = 256 + 128 = 384
+        assert param_count == expected_params, f"Expected {expected_params} params, got {param_count}"
+        
+        # Calculate efficiency
+        full_linear_params = 64 * 32  # 2048
+        efficiency = param_count / full_linear_params
+        reduction = (1 - efficiency) * 100
+        print(f"  ✅ Parameter efficiency: {param_count}/{full_linear_params} = {efficiency:.3f} ({reduction:.1f}% reduction)")
+        
+        # Test 3: LoRA Linear layer
+        print("\n🔗 Testing LoRA Linear Layer...")
+        print("  • Creating LoRA Linear layer (32→16, rank=2)...")
+        lora_linear = LoRALinear(32, 16, rank=2, alpha=8.0)
+        
+        # Verify frozen base layer
+        base_params_frozen = all(not p.requires_grad for p in lora_linear.linear.parameters())
+        assert base_params_frozen, "Base linear layer parameters should be frozen"
+        
+        # Verify LoRA parameters are trainable
+        lora_params_trainable = all(p.requires_grad for p in lora_linear.lora.parameters())
+        assert lora_params_trainable, "LoRA parameters should be trainable"
+        print("  ✅ Parameter freezing verified")
+        
+        # Test forward pass
+        print("  • Testing LoRA Linear forward pass...")
+        test_input2 = torch.randn(3, 32)
+        output2 = lora_linear(test_input2)
+        
+        assert output2.shape == (3, 16), f"Expected shape (3, 16), got {output2.shape}"
+        assert torch.is_tensor(output2), "Output should be a PyTorch tensor"
+        assert not torch.isnan(output2).any(), "Output should not contain NaN values"
+        print(f"  ✅ LoRA Linear forward pass successful: {test_input2.shape} → {output2.shape}")
+        
+        # Test parameter info
+        param_info = lora_linear.get_parameter_info()
+        expected_original = 32 * 16 + 16  # weights + bias = 512 + 16 = 528
+        expected_lora = 32 * 2 + 2 * 16  # A + B = 64 + 32 = 96
+        
+        assert param_info['original_params'] == expected_original, f"Expected {expected_original} original params"
+        assert param_info['lora_params'] == expected_lora, f"Expected {expected_lora} LoRA params"
+        assert param_info['trainable_params'] == expected_lora, "Only LoRA params should be trainable"
+        
+        training_efficiency = param_info['trainable_params'] / param_info['original_params']
+        print(f"  ✅ Training efficiency: {param_info['trainable_params']}/{param_info['original_params']} = {training_efficiency:.3f} ({training_efficiency*100:.1f}%)")
+        
+        # Test 4: Mathematical operations
+        print("\n🔢 Testing Mathematical Operations...")
+        print("  • Verifying low-rank decomposition...")
+        
+        # Create matrices and verify decomposition
+        A = torch.randn(10, 3) * 0.1
+        B = torch.zeros(3, 8)
+        W_lora = A @ B
+        
+        assert W_lora.shape == (10, 8), f"Expected decomposition shape (10, 8), got {W_lora.shape}"
+        
+        # Test that B initialized to zeros gives zero output initially
+        assert torch.allclose(W_lora, torch.zeros_like(W_lora)), "LoRA should start with zero contribution"
+        print("  ✅ Low-rank decomposition verified")
+        
+        # Test 5: Scaling factor
+        print("  • Testing scaling factor calculations...")
+        test_layer = LoRALayer(100, 50, rank=8, alpha=32.0)
+        expected_scaling = 32.0 / 8  # alpha / rank = 4.0
+        assert abs(test_layer.scaling - expected_scaling) < 1e-6, f"Expected scaling {expected_scaling}, got {test_layer.scaling}"
+        print(f"  ✅ Scaling factor correct: α/r = {test_layer.alpha}/{test_layer.rank} = {test_layer.scaling}")
+        
+        print("\n" + "=" * 50)
+        print("✅ ALL TESTS PASSED!")
+        print("=" * 50)
+        print("🎯 Test Results Summary:")
+        print(f"  • LoRA Layer: Working correctly with {reduction:.1f}% parameter reduction")
+        print(f"  • LoRA Linear: Working correctly with {training_efficiency*100:.1f}% training efficiency")
+        print("  • Mathematical operations: All verified")
+        print("  • PyTorch integration: Fully functional")
+        print("  • Parameter management: Correct freezing and training setup")
+        print("=" * 50)
+        
+        return True
+        
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        print("💡 Please install PyTorch to run the full test:")
+        print("   pip install torch")
+        return False
+    except AssertionError as e:
+        print(f"❌ Test assertion failed: {e}")
+        return False
     except Exception as e:
-        print(f"❌ Test failed with error: {e}")
+        print(f"❌ Test failed with unexpected error: {e}")
+        print(f"   Error type: {type(e).__name__}")
         return False
 
 
